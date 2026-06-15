@@ -1,30 +1,61 @@
-// Mock voice recognition for browsers without native support
+// Voice utilities for handling voice input and transcription
+
 export const mockVoiceRecognition = async (): Promise<string> => {
-  const mockTransactions = [
-    'I sold tomatoes for 500 shillings',
-    'Sold 10 kilos of onions for 800',
-    'Bananas sold, 300 shillings total',
-    'Sold maize for 1200 shillings',
-    'Vegetables sold for 450 shillings',
+  // Mock voice recognition responses
+  const mockResponses = [
+    'Sold twenty sukuma wiki for eight hundred shillings',
+    'Sold fifteen tomatoes for five hundred shillings',
+    'Sold ten eggs for two thousand shillings',
+    'Sold five kilos of beans for three thousand shillings',
   ];
-  
-  return mockTransactions[Math.floor(Math.random() * mockTransactions.length)];
+
+  return mockResponses[Math.floor(Math.random() * mockResponses.length)];
 };
 
-// Extract transaction details from text
-export const extractTransactionDetails = (text: string) => {
-  // Simple regex patterns for common transaction formats
-  const priceMatch = text.match(/(\d+)\s*(ksh|shilling|kes|shs)/i);
-  const productMatch = text.match(/(tomatoes|onions|bananas|maize|vegetables|rice|beans|potatoes|carrots|cabbage)/i);
-  
-  const revenue = priceMatch ? parseInt(priceMatch[1]) : 0;
-  const productName = productMatch ? productMatch[1] : '';
-  
+export const extractTransactionDetails = (text: string): any => {
+  // Extract numbers and product details from recognized text
+  const numberRegex = /\d+/g;
+  const numbers = text.match(numberRegex) || [];
+
+  // Simple extraction logic
+  let quantity = 1;
+  let revenue = 0;
+  let productName = 'Unknown Product';
+
+  if (numbers.length >= 2) {
+    quantity = parseInt(numbers[0]);
+    revenue = parseInt(numbers[1]);
+  } else if (numbers.length === 1) {
+    revenue = parseInt(numbers[0]);
+  }
+
+  // Extract product name
+  const productWords = text.toLowerCase().split(' ');
+  const keywords = {
+    'sukuma': 'Sukuma Wiki',
+    'tomato': 'Tomatoes',
+    'egg': 'Eggs',
+    'bean': 'Beans',
+    'vegetable': 'Vegetables',
+    'rice': 'Rice',
+    'grain': 'Grains',
+    'milk': 'Milk',
+    'cheese': 'Cheese',
+  };
+
+  for (const word of productWords) {
+    for (const [keyword, name] of Object.entries(keywords)) {
+      if (word.includes(keyword)) {
+        productName = name;
+        break;
+      }
+    }
+  }
+
   return {
     productName,
+    quantity,
     revenue,
-    quantity: 1,
     category: 'Produce',
-    date: new Date().toISOString().split('T')[0],
   };
 };

@@ -1,66 +1,53 @@
-import { Transaction, Product } from './types';
+// AI utility functions for generating insights and bot responses
 
-// Mock AI Insights Generator
-export const generateAIInsights = (transactions: Transaction[], products: Product[]) => {
-  const insights = [];
+import { Transaction, Product } from './localStorage';
 
-  // Best selling products
-  if (transactions.length > 0) {
-    const productSales: { [key: string]: number } = {};
-    transactions.forEach(t => {
-      productSales[t.productName] = (productSales[t.productName] || 0) + t.quantity;
-    });
-    
-    const bestSeller = Object.entries(productSales).sort((a, b) => b[1] - a[1])[0];
-    if (bestSeller) {
-      insights.push(`${bestSeller[0]} is your best-selling product with ${bestSeller[1]} units sold.`);
-    }
+export const generateAIInsights = (transactions: Transaction[], products: Product[]): string[] => {
+  const insights: string[] = [];
+
+  if (transactions.length === 0 || products.length === 0) {
+    return ['Start tracking transactions to get AI insights'];
   }
 
-  // Revenue trends
-  if (transactions.length > 0) {
-    const totalRevenue = transactions.reduce((sum, t) => sum + t.revenue, 0);
-    const lastWeekRevenue = transactions
-      .filter(t => {
-        const tDate = new Date(t.date);
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        return tDate > weekAgo;
-      })
-      .reduce((sum, t) => sum + t.revenue, 0);
-    
-    if (lastWeekRevenue > 0) {
-      const growth = Math.round(((totalRevenue - lastWeekRevenue) / lastWeekRevenue) * 100);
-      insights.push(`Revenue increased by ${Math.abs(growth)}% this week.`);
-    }
+  // Calculate metrics
+  const totalRevenue = transactions.reduce((sum, t) => sum + t.revenue, 0);
+  const avgTransaction = totalRevenue / transactions.length;
+  const lowStockProducts = products.filter(p => p.stockQuantity < 5);
+  const highMarginProducts = products.filter(
+    p => (p.sellingPrice - p.costPrice) / p.costPrice > 0.5
+  );
+
+  // Generate insights
+  if (avgTransaction < 1000) {
+    insights.push('Your average transaction is low. Consider bundling products to increase sales.');
   }
 
-  // Low stock warnings
-  products.forEach(p => {
-    if (p.stockQuantity < 5) {
-      insights.push(`Consider restocking ${p.productName}. Current stock: ${p.stockQuantity} units.`);
-    }
-  });
-
-  // Profit margins
-  if (products.length > 0) {
-    const highMarginProducts = products
-      .map(p => ({
-        name: p.productName,
-        margin: ((p.sellingPrice - p.costPrice) / p.costPrice * 100),
-      }))
-      .sort((a, b) => b.margin - a.margin)
-      .slice(0, 2);
-    
-    if (highMarginProducts.length > 0) {
-      insights.push(`${highMarginProducts[0].name} has the highest profit margin at ${Math.round(highMarginProducts[0].margin)}%.`);
-    }
+  if (lowStockProducts.length > 0) {
+    insights.push(
+      `You have ${lowStockProducts.length} product(s) with low stock. Reorder soon to avoid stock-outs.`
+    );
   }
 
-  return insights.slice(0, 5);
+  if (highMarginProducts.length > 0) {
+    insights.push(
+      `Focus on selling ${highMarginProducts.slice(0, 2).map(p => p.productName).join(', ')}. They have the highest profit margins.`
+    );
+  }
+
+  // Weekly trend
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const weeklyRevenue = transactions
+    .filter(t => new Date(t.date) > weekAgo)
+    .reduce((sum, t) => sum + t.revenue, 0);
+
+  if (weeklyRevenue > totalRevenue * 0.3) {
+    insights.push('Great week! Your sales are performing well. Keep up the momentum.');
+  }
+
+  return insights;
 };
 
-// Mock SautiBot Responses
 export const generateSautiBotResponse = (
   question: string,
   transactions: Transaction[],
@@ -69,56 +56,59 @@ export const generateSautiBotResponse = (
 ): string => {
   const lowerQuestion = question.toLowerCase();
 
-  // Sales queries
-  if (lowerQuestion.includes('sales') || lowerQuestion.includes('sell')) {
-    const totalSales = transactions.reduce((sum, t) => sum + t.revenue, 0);
-    return language === 'sw' 
-      ? `Jumla ya mauzo yako ni KES ${totalSales.toLocaleString()}.`
-      : `Your total sales are KES ${totalSales.toLocaleString()}.`;
+  // Sales questions
+  if (lowerQuestion.includes('sale') || lowerQuestion.includes('revenue') || lowerQuestion.includes('earn')) {
+    const totalRevenue = transactions.reduce((sum, t) => sum + t.revenue, 0);
+    return `Your total revenue is KES ${totalRevenue.toLocaleString()}. You have made ${transactions.length} transactions so far.`;
   }
 
-  // Weekly sales
-  if (lowerQuestion.includes('week')) {
-    const weekSales = transactions
-      .filter(t => {
-        const tDate = new Date(t.date);
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        return tDate > weekAgo;
-      })
-      .reduce((sum, t) => sum + t.revenue, 0);
-    return language === 'sw'
-      ? `Mauzo ya juma hili ni KES ${weekSales.toLocaleString()}.`
-      : `This week's sales are KES ${weekSales.toLocaleString()}.`;
-  }
-
-  // Restock queries
-  if (lowerQuestion.includes('restock') || lowerQuestion.includes('low stock')) {
-    const lowStockProducts = products.filter(p => p.stockQuantity < 5);
-    if (lowStockProducts.length === 0) {
-      return language === 'sw' ? 'Bidhaa zako zote zina hazina nzuri.' : 'All your products have good stock levels.';
+  // Stock questions
+  if (lowerQuestion.includes('stock') || lowerQuestion.includes('restock') || lowerQuestion.includes('inventory')) {
+    const lowStock = products.filter(p => p.stockQuantity < 5);
+    if (lowStock.length > 0) {
+      return `You need to restock: ${lowStock.map(p => `${p.productName} (${p.stockQuantity} units)`).join(', ')}`;
     }
-    return language === 'sw'
-      ? `Unahitaji kujenga hazina ya: ${lowStockProducts.map(p => p.productName).join(', ')}`
-      : `You should restock: ${lowStockProducts.map(p => p.productName).join(', ')}`;
+    return 'All your products have good stock levels. Well managed!';
   }
 
-  // Best seller
-  if (lowerQuestion.includes('best') || lowerQuestion.includes('top')) {
-    const productSales: { [key: string]: number } = {};
-    transactions.forEach(t => {
-      productSales[t.productName] = (productSales[t.productName] || 0) + t.quantity;
+  // Profit questions
+  if (lowerQuestion.includes('profit') || lowerQuestion.includes('margin') || lowerQuestion.includes('profitable')) {
+    const sorted = products.sort((a, b) => {
+      const marginA = (a.sellingPrice - a.costPrice) / a.costPrice;
+      const marginB = (b.sellingPrice - b.costPrice) / b.costPrice;
+      return marginB - marginA;
     });
-    const bestSeller = Object.entries(productSales).sort((a, b) => b[1] - a[1])[0];
-    if (bestSeller) {
-      return language === 'sw'
-        ? `Bidhaa yenye mauzo mengi ni ${bestSeller[0]} na vitengo ${bestSeller[1]}.`
-        : `Your best-selling product is ${bestSeller[0]} with ${bestSeller[1]} units sold.`;
+    if (sorted.length > 0) {
+      const best = sorted[0];
+      const margin = ((best.sellingPrice - best.costPrice) / best.costPrice * 100).toFixed(1);
+      return `Your most profitable product is ${best.productName} with a ${margin}% profit margin.`;
     }
+  }
+
+  // Product questions
+  if (lowerQuestion.includes('product') || lowerQuestion.includes('sell')) {
+    const salesCount: { [key: string]: number } = {};
+    transactions.forEach(t => {
+      salesCount[t.productName] = (salesCount[t.productName] || 0) + t.quantity;
+    });
+    const bestSelling = Object.entries(salesCount).sort((a, b) => b[1] - a[1])[0];
+    if (bestSelling) {
+      return `Your best-selling product is ${bestSelling[0]} with ${bestSelling[1]} units sold.`;
+    }
+  }
+
+  // Recommendation questions
+  if (lowerQuestion.includes('recommendation') || lowerQuestion.includes('suggest') || lowerQuestion.includes('grow')) {
+    const tips = [
+      'Focus on your best-selling products and stock more of them.',
+      'Use voice recording to log transactions faster and reduce errors.',
+      'Analyze your profit margins - prioritize high-margin products.',
+      'Keep your inventory optimized to minimize storage costs.',
+      'Track customer preferences and adjust your product mix accordingly.',
+    ];
+    return tips[Math.floor(Math.random() * tips.length)];
   }
 
   // Default response
-  return language === 'sw'
-    ? 'Je, unaweza kuuliza kitu kingine? Naposeza kusaidia kwa mauzo, hazina, au ripoti.'
-    : 'What else would you like to know? I can help with sales, inventory, or reports.';
+  return 'I\'m here to help! Ask me about your sales, inventory, profits, or tips to grow your business.';
 };

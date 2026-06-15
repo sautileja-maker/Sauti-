@@ -9,13 +9,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: '#0066CC',
-        secondary: '#00B074',
-        accent: '#FF6B6B',
-        background: '#FFFFFF',
-        surface: '#F5F5F5',
-        text: '#1A1A1A',
-        'text-secondary': '#666666',
+        primary: '#0066cc',
+        secondary: '#00b074',
+        danger: '#ff6b6b',
+        warning: '#ffa500',
+        success: '#00b074',
+        surface: '#f8f9fa',
+      },
+      spacing: {
+        '128': '32rem',
       },
     },
   },
